@@ -1,0 +1,64 @@
+// ====================================================
+// Child Prim: Avatar Indicator Visual FX Handler (Fixed)
+// ====================================================
+
+float defaultSize = 0.1;
+float effectDuration = 10.0;
+float shrinkDuration = 3.0;
+
+vector normalScale;
+vector largeScale;
+
+integer active = FALSE;
+float endTime = 0.0;
+
+default
+{
+    state_entry()
+    {
+        normalScale = <defaultSize, defaultSize, defaultSize>;
+        largeScale = normalScale * 2.0;
+
+        llSetLinkPrimitiveParamsFast(LINK_THIS, [
+            PRIM_COLOR, ALL_SIDES, <1,1,1>, 1.0,
+            PRIM_GLOW, ALL_SIDES, 0.0,
+            PRIM_SIZE, normalScale
+        ]);
+    }
+
+    link_message(integer sender, integer channel, string data, key id)
+    {
+        if (llSubStringIndex(data, "NEW:") == 0 || llSubStringIndex(data, "REENTRY:") == 0)
+        {
+            llSetLinkPrimitiveParamsFast(LINK_THIS, [
+                PRIM_GLOW, ALL_SIDES, 0.15,
+                PRIM_SIZE, largeScale
+            ]);
+
+            active = TRUE;
+            endTime = llGetTime() + effectDuration;
+            llSetTimerEvent(0.5);
+        }
+    }
+
+    timer()
+    {
+        float timeLeft = endTime - llGetTime();
+
+        if (timeLeft <= 0.0)
+        {
+            llSetLinkPrimitiveParamsFast(LINK_THIS, [
+                PRIM_SIZE, normalScale,
+                PRIM_GLOW, ALL_SIDES, 0.0
+            ]);
+            llSetTimerEvent(0.0);
+            active = FALSE;
+        }
+        else if (timeLeft <= shrinkDuration)
+        {
+            float ratio = timeLeft / shrinkDuration;
+            vector scale = normalScale + ((largeScale - normalScale) * ratio);
+            llSetLinkPrimitiveParamsFast(LINK_THIS, [PRIM_SIZE, scale]);
+        }
+    }
+}

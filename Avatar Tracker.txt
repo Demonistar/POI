@@ -1,0 +1,87 @@
+// ============================================
+// Avatar Tracker with Proximity Re-Entry Logic
+// ============================================
+
+list previouslySeen = [];
+list proximityFlags = []; // Tracks who is currently within 20m
+
+float PROXIMITY_RADIUS = 20.0;
+
+default
+{
+    state_entry()
+    {
+        llOwnerSay("Avatar tracking with proximity started.");
+        llSensorRepeat("", NULL_KEY, AGENT, 96.0, PI, 10.0);
+    }
+
+    sensor(integer count)
+    {
+        list currentlySeen = [];
+
+        integer i;
+        for (i = 0; i < count; ++i)
+        {
+            key uuid = llDetectedKey(i);
+            string name = llDetectedName(i);
+            vector pos = llDetectedPos(i);
+
+            currentlySeen += [uuid];
+
+            if (~llListFindList(previouslySeen, [uuid]) == FALSE)
+            {
+                // New avatar entirely
+                llOwnerSay(">>> NEW: " + name + " has entered range.");
+            }
+
+            // Check proximity re-entry
+            float distance = llVecDist(pos, llGetPos());
+
+            if (distance <= PROXIMITY_RADIUS)
+            {
+                if (~llListFindList(proximityFlags, [uuid]) == FALSE)
+                {
+                    // First time or re-entry into 20m
+                    llOwnerSay(">>> RE-ENTRY: " + name + " has come within 20m.");
+                    proximityFlags += [uuid];
+                }
+            }
+            else
+            {
+                // Remove from proximityFlags if they moved out
+                proximityFlags = llDeleteSubList(proximityFlags, llListFindList(proximityFlags, [uuid]), llListFindList(proximityFlags, [uuid]));
+            }
+        }
+
+        // Handle exits
+        integer j;
+        for (j = 0; j < llGetListLength(previouslySeen); ++j)
+        {
+            key old = llList2Key(previouslySeen, j);
+            if (~llListFindList(currentlySeen, [old]) == FALSE)
+            {
+                string departedName = llKey2Name(old);
+                llOwnerSay("<<< LEFT: " + departedName + " has exited range.");
+                // Also remove from proximity flags
+                proximityFlags = llDeleteSubList(proximityFlags, llListFindList(proximityFlags, [old]), llListFindList(proximityFlags, [old]));
+            }
+        }
+
+        previouslySeen = currentlySeen;
+    }
+
+    no_sensor()
+    {
+        integer k;
+        for (k = 0; k < llGetListLength(previouslySeen); ++k)
+        {
+            key departed = llList2Key(previouslySeen, k);
+            string name = llKey2Name(departed);
+            llOwnerSay("<<< LEFT: " + name + " has exited range.");
+        }
+
+        // Reset state
+        previouslySeen = [];
+        proximityFlags = [];
+    }
+}
